@@ -335,3 +335,4 @@ const ModelingTab: React.FC<ModelingTabProps> = ({ stock }) => {
 };
 
 export default ModelingTab;
+

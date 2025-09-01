@@ -258,3 +258,4 @@ const OwnershipTab: React.FC<OwnershipTabProps> = ({ stock }) => {
 };
 
 export default OwnershipTab;
+

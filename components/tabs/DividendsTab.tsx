@@ -332,3 +332,4 @@ const DividendsTab: React.FC<DividendsTabProps> = ({ stock }) => {
 };
 
 export default DividendsTab;
+

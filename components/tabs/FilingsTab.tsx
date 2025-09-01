@@ -260,3 +260,4 @@ const FilingsTab: React.FC<FilingsTabProps> = ({ stock }) => {
 };
 
 export default FilingsTab;
+

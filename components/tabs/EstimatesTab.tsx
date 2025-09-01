@@ -28,25 +28,35 @@ const EstimatesTab: React.FC<EstimatesTabProps> = ({ stock }) => {
   const timeframes = ['Annual', 'Semi-Annual', 'Quarterly'];
 
   const getMetricData = () => {
+    // Only allow metrics that have the expected structure (exclude priceTargets)
+    const validMetrics = ['revenue', 'eps', 'ebitda'];
+    if (!validMetrics.includes(selectedMetric)) return [];
+    
     const metric = stock.estimates[selectedMetric as keyof typeof stock.estimates];
-    if (!metric) return [];
+    if (!metric || !Array.isArray(metric)) return [];
 
     return metric.map((item, index) => {
+      // Type guard to ensure item has the expected structure
+      if (!('actual' in item) || !('estimate' in item)) return null;
+      
       const value = item.actual || item.estimate;
       const low = item.low;
       const high = item.high;
       
       if (showPercentChange && index > 0) {
-        const prevValue = metric[index - 1].actual || metric[index - 1].estimate;
-        if (prevValue && value) {
-          const percentChange = ((value - prevValue) / prevValue) * 100;
-          return {
-            year: item.year,
-            value: percentChange,
-            low: low && prevValue ? ((low - prevValue) / prevValue) * 100 : null,
-            high: high && prevValue ? ((high - prevValue) / prevValue) * 100 : null,
-            isEstimate: !item.actual
-          };
+        const prevItem = metric[index - 1];
+        if (prevItem && 'actual' in prevItem) {
+          const prevValue = prevItem.actual || prevItem.estimate;
+          if (prevValue && value) {
+            const percentChange = ((value - prevValue) / prevValue) * 100;
+            return {
+              year: item.year,
+              value: percentChange,
+              low: low && prevValue ? ((low - prevValue) / prevValue) * 100 : null,
+              high: high && prevValue ? ((high - prevValue) / prevValue) * 100 : null,
+              isEstimate: !item.actual
+            };
+          }
         }
       }
 
@@ -57,7 +67,7 @@ const EstimatesTab: React.FC<EstimatesTabProps> = ({ stock }) => {
         high: high,
         isEstimate: !item.actual
       };
-    }).filter(item => item.value !== null);
+    }).filter(item => item !== null && item.value !== null);
   };
 
   const formatValue = (value: number) => {
@@ -239,14 +249,32 @@ const EstimatesTab: React.FC<EstimatesTabProps> = ({ stock }) => {
           <div className="bg-gray-700 rounded-lg p-4">
             <div className="text-gray-400 text-sm">Current Year</div>
             <div className="text-2xl font-bold text-white">
-              ${formatValue(stock.estimates[selectedMetric as keyof typeof stock.estimates]?.[0]?.actual || 0)}{selectedUnit}
+              {(() => {
+                const validMetrics = ['revenue', 'eps', 'ebitda'];
+                if (!validMetrics.includes(selectedMetric)) return `$0${selectedUnit}`;
+                
+                const metricData = stock.estimates[selectedMetric as keyof typeof stock.estimates];
+                if (!metricData || !Array.isArray(metricData) || metricData.length < 1) return `$0${selectedUnit}`;
+                
+                const actual = metricData[0] && 'actual' in metricData[0] ? metricData[0].actual : 0;
+                return `$${formatValue(actual)}${selectedUnit}`;
+              })()}
             </div>
             <div className="text-gray-400 text-xs">Actual</div>
           </div>
           <div className="bg-gray-700 rounded-lg p-4">
             <div className="text-gray-400 text-sm">Next Year Est.</div>
             <div className="text-2xl font-bold text-emerald-400">
-              ${formatValue(stock.estimates[selectedMetric as keyof typeof stock.estimates]?.[1]?.estimate || 0)}{selectedUnit}
+              {(() => {
+                const validMetrics = ['revenue', 'eps', 'ebitda'];
+                if (!validMetrics.includes(selectedMetric)) return `$0${selectedUnit}`;
+                
+                const metricData = stock.estimates[selectedMetric as keyof typeof stock.estimates];
+                if (!metricData || !Array.isArray(metricData) || metricData.length < 2) return `$0${selectedUnit}`;
+                
+                const estimate = metricData[1] && 'estimate' in metricData[1] ? metricData[1].estimate : 0;
+                return `$${formatValue(estimate)}${selectedUnit}`;
+              })()}
             </div>
             <div className="text-gray-400 text-xs">Consensus</div>
           </div>
@@ -254,8 +282,14 @@ const EstimatesTab: React.FC<EstimatesTabProps> = ({ stock }) => {
             <div className="text-gray-400 text-sm">5-Year Growth</div>
             <div className="text-2xl font-bold text-blue-400">
               {(() => {
-                const current = stock.estimates[selectedMetric as keyof typeof stock.estimates]?.[0]?.actual || 0;
-                const future = stock.estimates[selectedMetric as keyof typeof stock.estimates]?.[4]?.estimate || 0;
+                const validMetrics = ['revenue', 'eps', 'ebitda'];
+                if (!validMetrics.includes(selectedMetric)) return '0%';
+                
+                const metricData = stock.estimates[selectedMetric as keyof typeof stock.estimates];
+                if (!metricData || !Array.isArray(metricData) || metricData.length < 5) return '0%';
+                
+                const current = metricData[0] && 'actual' in metricData[0] ? metricData[0].actual : 0;
+                const future = metricData[4] && 'estimate' in metricData[4] ? metricData[4].estimate : 0;
                 if (current === 0) return '0%';
                 return `${(((future - current) / current) * 100).toFixed(1)}%`;
               })()}
@@ -283,12 +317,22 @@ const EstimatesTab: React.FC<EstimatesTabProps> = ({ stock }) => {
               </tr>
             </thead>
             <tbody>
-              {stock.estimates[selectedMetric as keyof typeof stock.estimates]?.map((item, index) => {
-                const value = item.actual || item.estimate;
-                const prevValue = index > 0 ? 
-                  (stock.estimates[selectedMetric as keyof typeof stock.estimates]?.[index - 1]?.actual || 
-                   stock.estimates[selectedMetric as keyof typeof stock.estimates]?.[index - 1]?.estimate) : null;
-                const yoyChange = prevValue && value ? ((value - prevValue) / prevValue) * 100 : null;
+              {(() => {
+                const validMetrics = ['revenue', 'eps', 'ebitda'];
+                if (!validMetrics.includes(selectedMetric)) return null;
+                
+                const metricData = stock.estimates[selectedMetric as keyof typeof stock.estimates];
+                if (!metricData || !Array.isArray(metricData)) return null;
+                
+                return metricData.map((item, index) => {
+                  // Type guard to ensure item has the expected structure
+                  if (!('actual' in item) || !('estimate' in item)) return null;
+                  
+                  const value = item.actual || item.estimate;
+                  const prevValue = index > 0 ? 
+                    (metricData[index - 1] && 'actual' in metricData[index - 1] ? 
+                     (metricData[index - 1] as any).actual || (metricData[index - 1] as any).estimate : null) : null;
+                  const yoyChange = prevValue && value ? ((value - prevValue) / prevValue) * 100 : null;
                 
                 return (
                   <tr key={item.year} className="border-b border-gray-700">
@@ -314,7 +358,8 @@ const EstimatesTab: React.FC<EstimatesTabProps> = ({ stock }) => {
                     </td>
                   </tr>
                 );
-              })}
+              }).filter(item => item !== null);
+              })()}
             </tbody>
           </table>
         </div>

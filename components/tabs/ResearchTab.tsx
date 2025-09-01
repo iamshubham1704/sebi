@@ -168,3 +168,4 @@ const ResearchTab: React.FC<ResearchTabProps> = ({ stock }) => {
 };
 
 export default ResearchTab;
+
