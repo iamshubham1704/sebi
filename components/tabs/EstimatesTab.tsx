@@ -27,7 +27,15 @@ const EstimatesTab: React.FC<EstimatesTabProps> = ({ stock }) => {
 
   const timeframes = ['Annual', 'Semi-Annual', 'Quarterly'];
 
-  const getMetricData = () => {
+  type EstimatePoint = {
+    year: number | string;
+    value: number;
+    low: number | null;
+    high: number | null;
+    isEstimate: boolean;
+  };
+
+  const getMetricData = (): EstimatePoint[] => {
     // Only allow metrics that have the expected structure (exclude priceTargets)
     const validMetrics = ['revenue', 'eps', 'ebitda'];
     if (!validMetrics.includes(selectedMetric)) return [];
@@ -35,7 +43,7 @@ const EstimatesTab: React.FC<EstimatesTabProps> = ({ stock }) => {
     const metric = stock.estimates[selectedMetric as keyof typeof stock.estimates];
     if (!metric || !Array.isArray(metric)) return [];
 
-    return metric.map((item, index) => {
+    const mapped = metric.map((item, index) => {
       // Type guard to ensure item has the expected structure
       if (!('actual' in item) || !('estimate' in item)) return null;
       
@@ -67,7 +75,18 @@ const EstimatesTab: React.FC<EstimatesTabProps> = ({ stock }) => {
         high: high,
         isEstimate: !item.actual
       };
-    }).filter(item => item !== null && item.value !== null);
+    });
+
+    // Filter out nulls and ensure value is non-null, then coerce type
+    return mapped
+      .filter((item): item is NonNullable<typeof item> & { value: number } => item !== null && item.value !== null)
+      .map((item) => ({
+        year: item.year,
+        value: item.value as number,
+        low: item.low ?? null,
+        high: item.high ?? null,
+        isEstimate: item.isEstimate
+      }));
   };
 
   const formatValue = (value: number) => {
@@ -135,7 +154,7 @@ const EstimatesTab: React.FC<EstimatesTabProps> = ({ stock }) => {
               strokeWidth={3}
               dot={(props) => {
                 const { cx, cy, payload } = props;
-                if (!cx || !cy) return null;
+                if (!cx || !cy) return <g />;
                 
                 return (
                   <circle
@@ -256,7 +275,7 @@ const EstimatesTab: React.FC<EstimatesTabProps> = ({ stock }) => {
                 const metricData = stock.estimates[selectedMetric as keyof typeof stock.estimates];
                 if (!metricData || !Array.isArray(metricData) || metricData.length < 1) return `$0${selectedUnit}`;
                 
-                const actual = metricData[0] && 'actual' in metricData[0] ? metricData[0].actual : 0;
+                const actual = metricData[0] && 'actual' in metricData[0] ? (metricData[0].actual ?? 0) : 0;
                 return `$${formatValue(actual)}${selectedUnit}`;
               })()}
             </div>
@@ -272,7 +291,7 @@ const EstimatesTab: React.FC<EstimatesTabProps> = ({ stock }) => {
                 const metricData = stock.estimates[selectedMetric as keyof typeof stock.estimates];
                 if (!metricData || !Array.isArray(metricData) || metricData.length < 2) return `$0${selectedUnit}`;
                 
-                const estimate = metricData[1] && 'estimate' in metricData[1] ? metricData[1].estimate : 0;
+                const estimate = metricData[1] && 'estimate' in metricData[1] ? (metricData[1].estimate ?? 0) : 0;
                 return `$${formatValue(estimate)}${selectedUnit}`;
               })()}
             </div>
@@ -288,8 +307,8 @@ const EstimatesTab: React.FC<EstimatesTabProps> = ({ stock }) => {
                 const metricData = stock.estimates[selectedMetric as keyof typeof stock.estimates];
                 if (!metricData || !Array.isArray(metricData) || metricData.length < 5) return '0%';
                 
-                const current = metricData[0] && 'actual' in metricData[0] ? metricData[0].actual : 0;
-                const future = metricData[4] && 'estimate' in metricData[4] ? metricData[4].estimate : 0;
+                const current = metricData[0] && 'actual' in metricData[0] ? (metricData[0].actual ?? 0) : 0;
+                const future = metricData[4] && 'estimate' in metricData[4] ? (metricData[4].estimate ?? 0) : 0;
                 if (current === 0) return '0%';
                 return `${(((future - current) / current) * 100).toFixed(1)}%`;
               })()}
